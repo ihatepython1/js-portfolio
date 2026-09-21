@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four browser apps — Noppawit Putthanbut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f2f1ed; --ink:#191c1f; --muted:#6e7479; --line:#dcdad4;
+    --sans:"Archivo",-apple-system,"Segoe UI",sans-serif; --mono:"Roboto Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.55}
+  a{color:inherit}
+  .page{max-width:840px;margin:0 auto;padding:64px 22px 80px}
+
+  header h1{margin:0 0 10px;font-size:clamp(30px,6vw,46px);font-weight:700;letter-spacing:-.035em;max-width:16ch;line-height:1.05}
+  header p{margin:0;color:var(--muted);max-width:58ch;font-size:16px}
+  .status{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--muted);
+    border-left:3px solid var(--line);padding-left:10px}
+  .status[data-on="true"]{border-left-color:#2f7d5b;color:#3d6b57}
+  code{font-family:var(--mono);font-size:.9em;background:#e7e6e1;padding:1px 4px;border-radius:3px}
+  .meta{margin-top:14px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  .meta a{text-decoration-color:var(--line)}
+
+  .list{margin-top:48px;border-top:1px solid var(--line)}
+  .item{display:grid;grid-template-columns:92px 1fr;gap:22px;padding:26px 0;border-bottom:1px solid var(--line);
+    text-decoration:none;align-items:start}
+  .item:hover h2,.item:focus-visible h2{color:var(--tint)}
+  .item:focus-visible{outline:2px solid var(--tint);outline-offset:6px}
+  .thumb{width:92px;height:66px;border:1px solid var(--line);background:#fff;display:block}
+  h2{margin:0 0 4px;font-size:21px;font-weight:600;letter-spacing:-.02em;transition:color .12s}
+  .item p{margin:0 0 10px;color:var(--muted);font-size:14.5px;max-width:56ch}
+  .extra{margin:0 0 10px;font-size:13px;color:var(--muted);font-style:normal}
+  .extra::before{content:"";display:inline-block;width:14px;height:1px;background:var(--tint);
+    vertical-align:middle;margin-right:7px}
+  .tags{display:flex;gap:6px;flex-wrap:wrap}
+  .tags span{font-family:var(--mono);font-size:11.5px;color:var(--muted);border:1px solid var(--line);
+    border-radius:99px;padding:2px 9px;background:#fff}
+  .tags span:first-child{border-color:var(--tint);color:var(--tint)}
+
+  footer{margin-top:44px;font-size:13.5px;color:var(--muted)}
+  @media(max-width:560px){.item{grid-template-columns:1fr}.thumb{width:100%;height:80px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Four things a browser can do without any libraries</h1>
+    <p>Each project below is one HTML file with hand-written JavaScript — no framework, no build step, no dependencies. They cover the parts of front-end work I find most interesting: application state, algorithms, pixels, and sound.</p>
+    <p>Behind them sits one Node server built the same way, from <code>node:</code> builtins only: its own router, its own PNG and WAV encoders, its own WebSocket implementation, and worker threads for the heavy work. Open any app without it and everything still runs; start it and each app gains a backend.</p>
+    <p class="status" id="status">Checking for a backend on this origin…</p>
+    <p class="meta">Noppawit Putthanbut (Poon) · Lampang, Thailand · <a href="https://ihatepython1.github.io">ihatepython1.github.io</a></p>
+  </header>
+
+  <div class="list">
+    <a class="item" href="shelf/" style="--tint:#b38400">
+      <svg class="thumb" viewBox="0 0 92 66" aria-hidden="true">
+        <rect width="92" height="66" fill="#fff"/>
+        <rect x="0" y="0" width="92" height="13" fill="#12171f"/>
+        <g fill="#e8b10a"><rect x="8" y="20" width="26" height="6"/><rect x="8" y="32" width="40" height="6"/></g>
+        <g fill="#d6dce2"><rect x="38" y="20" width="46" height="6"/><rect x="52" y="32" width="32" height="6"/>
+          <rect x="8" y="44" width="76" height="6"/><rect x="8" y="56" width="54" height="6"/></g>
+        <rect x="0" y="44" width="3" height="6" fill="#c8442f"/>
+      </svg>
+      <div>
+        <h2>Shelf — stock control</h2>
+        <p>An inventory tool for a small retail shop: reorder alerts, sortable columns, CSV import and export, and an undo that actually works. Data lives in the browser.</p>
+        <p class="extra">With the server: SQLite storage, live sync across tabs, stock movement log.</p>
+        <div class="tags"><span>State &amp; data</span><span>localStorage</span><span>CSV parser</span><span>SQLite</span><span>WebSocket</span></div>
+      </div>
+    </a>
+
+    <a class="item" href="pathfinder/" style="--tint:#d14836">
+      <svg class="thumb" viewBox="0 0 92 66" aria-hidden="true">
+        <rect width="92" height="66" fill="#fff"/>
+        <g fill="#cfe0e8"><rect x="12" y="18" width="42" height="30"/></g>
+        <g fill="#26303a"><rect x="24" y="6" width="6" height="30"/><rect x="48" y="30" width="6" height="30"/>
+          <rect x="66" y="12" width="6" height="24"/></g>
+        <path d="M8 54 L18 54 L18 30 L38 30 L38 48 L60 48 L60 18 L84 18" fill="none" stroke="#d14836" stroke-width="3"/>
+        <g stroke="#dfe3e0" stroke-width="1">
+          <path d="M0 12H92M0 24H92M0 36H92M0 48H92M12 0V66M24 0V66M36 0V66M48 0V66M60 0V66M72 0V66M84 0V66"/></g>
+      </svg>
+      <div>
+        <h2>Pathfinder — search visualizer</h2>
+        <p>A*, Dijkstra, breadth-first, greedy and depth-first running on the same grid, so you can see how much of the map each one bothers to look at. Includes a maze generator and weighted terrain.</p>
+        <p class="extra">With the server: all five benchmarked over seeded mazes in a worker pool.</p>
+        <div class="tags"><span>Algorithms</span><span>Canvas 2D</span><span>Binary heap</span><span>worker_threads</span></div>
+      </div>
+    </a>
+
+    <a class="item" href="imagelab/" style="--tint:#1d6a72">
+      <svg class="thumb" viewBox="0 0 92 66" aria-hidden="true">
+        <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#12395e"/><stop offset=".6" stop-color="#e08a4a"/><stop offset="1" stop-color="#f3cfa0"/>
+        </linearGradient></defs>
+        <rect width="46" height="66" fill="url(#sky)"/>
+        <rect x="46" width="46" height="66" fill="#7a7a7a"/>
+        <path d="M46 0h46v66H46z" fill="url(#sky)" opacity=".35"/>
+        <path d="M0 44 Q23 30 46 42 L46 66 L0 66Z" fill="#3a3146"/>
+        <path d="M46 42 Q69 30 92 42 L92 66 L46 66Z" fill="#1d6a72"/>
+        <rect x="45" width="2" height="66" fill="#fff"/>
+      </svg>
+      <div>
+        <h2>Image Lab — pixel processing</h2>
+        <p>Brightness, contrast and gamma through a lookup table; blur, sharpen, emboss and Sobel edges through hand-written 3×3 convolution. Live RGB histogram and a before/after split.</p>
+        <p class="extra">With the server: full-resolution pass in a worker, PNG from a hand-written encoder.</p>
+        <div class="tags"><span>Graphics</span><span>ImageData</span><span>Convolution</span><span>PNG encoder</span></div>
+      </div>
+    </a>
+
+    <a class="item" href="sequencer/" style="--tint:#e2621c">
+      <svg class="thumb" viewBox="0 0 92 66" aria-hidden="true">
+        <rect width="92" height="66" fill="#d9d5cc"/>
+        <rect width="92" height="12" fill="#c8c4ba"/>
+        <g fill="#e6e2da">
+          <rect x="6" y="18" width="8" height="8"/><rect x="18" y="18" width="8" height="8"/><rect x="30" y="18" width="8" height="8"/>
+          <rect x="42" y="18" width="8" height="8"/><rect x="54" y="18" width="8" height="8"/><rect x="66" y="18" width="8" height="8"/>
+          <rect x="78" y="18" width="8" height="8"/>
+          <rect x="6" y="32" width="8" height="8"/><rect x="18" y="32" width="8" height="8"/><rect x="30" y="32" width="8" height="8"/>
+          <rect x="42" y="32" width="8" height="8"/><rect x="54" y="32" width="8" height="8"/><rect x="66" y="32" width="8" height="8"/>
+          <rect x="78" y="32" width="8" height="8"/>
+          <rect x="6" y="46" width="8" height="8"/><rect x="18" y="46" width="8" height="8"/><rect x="30" y="46" width="8" height="8"/>
+          <rect x="42" y="46" width="8" height="8"/><rect x="54" y="46" width="8" height="8"/><rect x="66" y="46" width="8" height="8"/>
+          <rect x="78" y="46" width="8" height="8"/>
+        </g>
+        <g fill="#e2621c"><rect x="6" y="18" width="8" height="8"/><rect x="42" y="18" width="8" height="8"/></g>
+        <g fill="#efa42b"><rect x="30" y="32" width="8" height="8"/><rect x="78" y="32" width="8" height="8"/></g>
+        <g fill="#c9b489"><rect x="18" y="46" width="8" height="8"/><rect x="54" y="46" width="8" height="8"/><rect x="66" y="46" width="8" height="8"/></g>
+      </svg>
+      <div>
+        <h2>Pulse-16 — step sequencer</h2>
+        <p>A drum machine that ships no audio files: every kick, hat and clap is built from oscillators and noise at play time, scheduled ahead of the clock so the timing holds steady. Patterns save into the URL.</p>
+        <p class="extra">With the server: offline WAV render, saved patterns, live jam room.</p>
+        <div class="tags"><span>Web Audio</span><span>Synthesis</span><span>Lookahead clock</span><span>WAV encoder</span></div>
+      </div>
+    </a>
+  </div>
+
+  <footer>Open any project, then read its source — each app is one file. The server is under
+  <code>server/</code>, its tests under <code>test/</code>: <code>node --test</code> runs all 51 of them
+  with nothing to install first.</footer>
+
+  <script>
+    (async () => {
+      const el = document.getElementById("status");
+      try {
+        const r = await fetch("/api/health", { signal: AbortSignal.timeout(1500) });
+        if (!r.ok) throw new Error();
+        const h = await r.json();
+        el.dataset.on = "true";
+        el.textContent =
+          `Backend up · ${h.node} · ${h.storage} storage · ` +
+          `${h.workers.solve + h.workers.pixels} worker threads · every app below has its extras enabled.`;
+      } catch {
+        el.textContent =
+          "No backend on this origin — the four apps below run entirely in your browser. " +
+          "Clone the repo and run node server/index.mjs to switch on the rest.";
+      }
+    })();
+  </script>
+</div>
+</body>
+</html>

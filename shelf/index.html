@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shelf — stock control for small retail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef1f4; --panel:#ffffff; --ink:#12171f; --muted:#68737f;
+    --line:#d6dce2; --mark:#e8b10a; --low:#c8442f; --ok:#2f7d5b;
+    --sans:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+  button,input,select{font:inherit;color:inherit}
+  button{cursor:pointer}
+
+  header{background:var(--ink);color:#fff;padding:14px 20px;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  header h1{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em}
+  header h1 span{color:var(--mark)}
+  header p{margin:0;color:#9aa6b2;font-size:13px}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:20px}
+  .kpi{background:var(--panel);padding:14px 16px}
+  .kpi b{display:block;font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.02em}
+  .kpi small{color:var(--muted);font-size:12.5px}
+  .kpi.warn b{color:var(--low)}
+
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .bar input[type=search],.bar select{background:var(--panel);border:1px solid var(--line);padding:8px 11px;border-radius:3px}
+  .bar input[type=search]{flex:1;min-width:200px}
+  .btn{background:var(--ink);color:#fff;border:none;padding:9px 15px;border-radius:3px;font-weight:500}
+  .btn:hover{background:#28303c}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{background:#e3e8ed}
+  :focus-visible{outline:2px solid var(--mark);outline-offset:2px}
+
+  .pill{font-family:var(--mono);font-size:11.5px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);background:var(--panel)}
+  .pill[data-on="true"]{border-color:var(--ok);color:var(--ok)}
+  .log{max-height:56vh;overflow:auto;margin:0;padding:0;list-style:none}
+  .log li{display:grid;grid-template-columns:66px 1fr auto;gap:10px;padding:8px 0;border-bottom:1px solid #eef1f4;font-size:13px;align-items:baseline}
+  .log time{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .log b{font-family:var(--mono);font-weight:500}
+  .log b.up{color:var(--ok)} .log b.down{color:var(--low)}
+  .log small{color:var(--muted);display:block}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line)}
+  th{text-align:left;font-size:12.5px;color:var(--muted);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+  th.num,td.num{text-align:right}
+  th[aria-sort="ascending"]::after{content:" ↑"} th[aria-sort="descending"]::after{content:" ↓"}
+  td{padding:10px 12px;border-bottom:1px solid #eef1f4;vertical-align:middle}
+  tbody tr:hover{background:#f7f9fb}
+  td.num,td .sku{font-family:var(--mono);font-size:13.5px}
+  .sku{color:var(--muted)}
+  .name{font-weight:500}
+  .tag{display:inline-block;font-size:12px;color:var(--muted);background:#eef1f4;padding:1px 7px;border-radius:99px}
+  .stepper{display:inline-flex;align-items:center;gap:6px}
+  .stepper button{width:24px;height:24px;border:1px solid var(--line);background:var(--panel);border-radius:3px;line-height:1}
+  .stepper button:hover{border-color:var(--ink)}
+  .qty{font-family:var(--mono);min-width:38px;text-align:right;display:inline-block}
+  tr.low .qty{color:var(--low);font-weight:500}
+  tr.low td:first-child{box-shadow:inset 3px 0 0 var(--low)}
+  tr.out{background:#fdf4f2}
+  .rowact button{border:none;background:none;color:var(--muted);padding:2px 5px;border-radius:3px}
+  .rowact button:hover{background:#e3e8ed;color:var(--ink)}
+  .empty{padding:56px 20px;text-align:center;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-top:none}
+  .empty b{display:block;color:var(--ink);margin-bottom:4px}
+
+  dialog{border:none;border-radius:4px;padding:0;width:min(520px,92vw);box-shadow:0 24px 60px rgba(18,23,31,.28)}
+  dialog::backdrop{background:rgba(18,23,31,.45)}
+  form.editor{padding:20px}
+  form.editor h2{margin:0 0 16px;font-size:17px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
+  .field input,.field select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:#fff}
+  .field.wide{grid-column:1/-1}
+  .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+  .err{color:var(--low);font-size:12.5px;min-height:18px;margin-top:8px}
+
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:4px;display:flex;gap:14px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  #toast[hidden]{display:none}
+  #toast button{background:none;border:none;color:var(--mark);font-weight:500;text-decoration:underline}
+  footer{color:var(--muted);font-size:12.5px;padding:0 20px 32px;max-width:1180px;margin:0 auto}
+  @media(max-width:640px){.hide-sm{display:none}.grid{grid-template-columns:1fr}}
+  @media(prefers-reduced-motion:no-preference){#toast{animation:rise .18s ease-out}@keyframes rise{from{opacity:0;transform:translate(-50%,8px)}}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Shelf<span>.</span></h1>
+  <p>Stock control for a shop that counts its own boxes</p>
+</header>
+
+<div class="wrap">
+  <section class="kpis" id="kpis"></section>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search name, SKU or supplier — press /" aria-label="Search products">
+    <select id="cat" aria-label="Filter by category"><option value="">All categories</option></select>
+    <select id="view" aria-label="Filter by stock level">
+      <option value="all">All stock levels</option>
+      <option value="low">Needs reorder</option>
+      <option value="out">Out of stock</option>
+    </select>
+    <button class="btn" id="add">Add product</button>
+    <button class="btn ghost" id="export">Export CSV</button>
+    <button class="btn ghost" id="importBtn">Import CSV</button>
+    <button class="btn ghost" id="logBtn" hidden>Movements</button>
+    <input type="file" id="importFile" accept=".csv,text/csv" hidden>
+    <span class="pill" id="pill" data-on="false">this browser only</span>
+  </div>
+
+  <table>
+    <thead><tr>
+      <th data-sort="sku">SKU</th>
+      <th data-sort="name">Product</th>
+      <th data-sort="category" class="hide-sm">Category</th>
+      <th data-sort="supplier" class="hide-sm">Supplier</th>
+      <th data-sort="cost" class="num hide-sm">Cost</th>
+      <th data-sort="price" class="num">Price</th>
+      <th data-sort="qty" class="num">On hand</th>
+      <th data-sort="value" class="num hide-sm">Value</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="empty" hidden><b>Nothing matches this filter</b>Clear the search or add a product to start counting.</div>
+</div>
+
+<footer>Data stays in this browser. Export to CSV to move it anywhere else.</footer>
+
+<dialog id="dlg">
+  <form class="editor" method="dialog">
+    <h2 id="dlgTitle">Add product</h2>
+    <div class="grid">
+      <div class="field"><label for="f-sku">SKU</label><input id="f-sku" required maxlength="20"></div>
+      <div class="field"><label for="f-cat">Category</label><input id="f-cat" list="cats" required></div>
+      <datalist id="cats"></datalist>
+      <div class="field wide"><label for="f-name">Product name</label><input id="f-name" required maxlength="80"></div>
+      <div class="field wide"><label for="f-sup">Supplier</label><input id="f-sup" list="sups"></div>
+      <datalist id="sups"></datalist>
+      <div class="field"><label for="f-cost">Unit cost (฿)</label><input id="f-cost" type="number" min="0" step="0.01" required></div>
+      <div class="field"><label for="f-price">Sell price (฿)</label><input id="f-price" type="number" min="0" step="0.01" required></div>
+      <div class="field"><label for="f-qty">On hand</label><input id="f-qty" type="number" min="0" step="1" required></div>
+      <div class="field"><label for="f-re">Reorder at</label><input id="f-re" type="number" min="0" step="1" required></div>
+    </div>
+    <p class="err" id="formErr"></p>
+    <div class="actions">
+      <button class="btn ghost" value="cancel" type="submit" formnovalidate>Cancel</button>
+      <button class="btn" id="save" value="save" type="submit">Save product</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="logDlg">
+  <form class="editor" method="dialog">
+    <h2>Stock movements</h2>
+    <ul class="log" id="logList"></ul>
+    <div class="actions"><button class="btn" value="close" type="submit">Close</button></div>
+  </form>
+</dialog>
+
+<div id="toast" hidden><span id="toastMsg"></span><button id="undo">Undo</button></div>
+
+<script>
+(() => {
+  "use strict";
+
+  /* ---------- storage: localStorage when available, memory otherwise ---------- */
+  const store = (() => {
+    const KEY = "shelf.products.v1";
+    let mem = null;
+    const ok = (() => { try { localStorage.setItem("__t","1"); localStorage.removeItem("__t"); return true; } catch { return false; } })();
+    return {
+      load(){ if(!ok) return mem; try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } },
+      save(v){ mem = v; if(ok) try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} }
+    };
+  })();
+
+  const seed = [
+    { sku:"BV-1001", name:"น้ำดื่มสิงห์ 600ml (แพ็ค 12)", category:"Beverage", supplier:"Boonrawd", cost:52, price:69, qty:48, reorder:24 },
+    { sku:"BV-1002", name:"เอส โคล่า 325ml (ลัง 24)", category:"Beverage", supplier:"Sermsuk", cost:186, price:240, qty:12, reorder:15 },
+    { sku:"SN-2210", name:"เลย์ รสโนริสาหร่าย 50g", category:"Snack", supplier:"Berli Jucker", cost:17, price:25, qty:96, reorder:40 },
+    { sku:"SN-2244", name:"ทาโร่ ปลาเส้น 25g (โหล)", category:"Snack", supplier:"Berli Jucker", cost:96, price:132, qty:6, reorder:12 },
+    { sku:"HH-3050", name:"ผงซักฟอกบรีส 2.5kg", category:"Household", supplier:"Unilever TH", cost:172, price:215, qty:21, reorder:10 },
+    { sku:"HH-3077", name:"น้ำยาล้างจานซันไลต์ 900ml", category:"Household", supplier:"Unilever TH", cost:58, price:79, qty:0, reorder:8 },
+    { sku:"DR-4110", name:"พาราเซตามอล 500mg (แผง)", category:"Pharmacy", supplier:"Zuellig", cost:8, price:15, qty:140, reorder:60 },
+    { sku:"ST-5001", name:"ข้าวหอมมะลิ 5kg", category:"Staple", supplier:"CP Rice", cost:245, price:299, qty:18, reorder:20 },
+    { sku:"ST-5009", name:"น้ำมันปาล์มโอลีน 1L", category:"Staple", supplier:"Morakot", cost:47, price:62, qty:64, reorder:24 },
+    { sku:"DA-6002", name:"นมไทยเดนมาร์ค 200ml (48)", category:"Dairy", supplier:"DPO", cost:396, price:480, qty:3, reorder:6 }
+  ];
+
+  let products = store.load() || seed.slice();
+  let sort = { key:"sku", dir:1 };
+  let editing = null;      // sku being edited, or null for new
+  let lastDeleted = null;
+  let toastTimer = null;
+
+  const $ = s => document.querySelector(s);
+  const rowsEl = $("#rows"), emptyEl = $("#empty"), dlg = $("#dlg");
+  const baht = n => "฿" + n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+
+  const valueOf = p => p.cost * p.qty;
+  const isLow  = p => p.qty > 0 && p.qty <= p.reorder;
+  const isOut  = p => p.qty === 0;
+
+  /* ---------- derived views ---------- */
+  function visible(){
+    const q = $("#q").value.trim().toLowerCase();
+    const cat = $("#cat").value;
+    const view = $("#view").value;
+    let list = products.filter(p => {
+      if (cat && p.category !== cat) return false;
+      if (view === "low" && !isLow(p)) return false;
+      if (view === "out" && !isOut(p)) return false;
+      if (!q) return true;
+      return (p.name + " " + p.sku + " " + (p.supplier||"")).toLowerCase().includes(q);
+    });
+    const k = sort.key;
+    list.sort((a,b) => {
+      const av = k === "value" ? valueOf(a) : a[k];
+      const bv = k === "value" ? valueOf(b) : b[k];
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * sort.dir;
+      return String(av).localeCompare(String(bv), "th") * sort.dir;
+    });
+    return list;
+  }
+
+  /* ---------- rendering ---------- */
+  function renderKpis(){
+    const value = products.reduce((s,p) => s + valueOf(p), 0);
+    const margin = products.reduce((s,p) => s + (p.price - p.cost) * p.qty, 0);
+    const low = products.filter(isLow).length, out = products.filter(isOut).length;
+    $("#kpis").innerHTML = [
+      ["Products tracked", products.length, ""],
+      ["Stock at cost", baht(value), ""],
+      ["Margin if all sold", baht(margin), ""],
+      ["Needs reorder", low, low ? "warn" : ""],
+      ["Out of stock", out, out ? "warn" : ""]
+    ].map(([label, val, cls]) =>
+      `<div class="kpi ${cls}"><b>${val}</b><small>${label}</small></div>`).join("");
+  }
+
+  function renderFilters(){
+    const cats = [...new Set(products.map(p => p.category))].sort();
+    const sel = $("#cat"), keep = sel.value;
+    sel.innerHTML = '<option value="">All categories</option>' +
+      cats.map(c => `<option>${esc(c)}</option>`).join("");
+    sel.value = cats.includes(keep) ? keep : "";
+    $("#cats").innerHTML = cats.map(c => `<option value="${esc(c)}">`).join("");
+    $("#sups").innerHTML = [...new Set(products.map(p => p.supplier).filter(Boolean))]
+      .map(s => `<option value="${esc(s)}">`).join("");
+  }
+
+  function renderRows(){
+    const list = visible();
+    emptyEl.hidden = list.length > 0;
+    rowsEl.innerHTML = list.map(p => {
+      const cls = isOut(p) ? "out low" : isLow(p) ? "low" : "";
+      return `<tr class="${cls}" data-sku="${esc(p.sku)}">
+        <td><span class="sku">${esc(p.sku)}</span></td>
+        <td class="name">${esc(p.name)}</td>
+        <td class="hide-sm"><span class="tag">${esc(p.category)}</span></td>
+        <td class="hide-sm">${esc(p.supplier || "—")}</td>
+        <td class="num hide-sm">${p.cost.toFixed(2)}</td>
+        <td class="num">${p.price.toFixed(2)}</td>
+        <td class="num"><span class="stepper">
+          <button data-act="dec" aria-label="Remove one ${esc(p.name)}">−</button>
+          <span class="qty">${p.qty}</span>
+          <button data-act="inc" aria-label="Add one ${esc(p.name)}">+</button>
+        </span></td>
+        <td class="num hide-sm">${baht(valueOf(p))}</td>
+        <td class="rowact">
+          <button data-act="edit" aria-label="Edit ${esc(p.name)}">Edit</button>
+          <button data-act="del" aria-label="Delete ${esc(p.name)}">Delete</button>
+        </td>
+      </tr>`;
+    }).join("");
+    document.querySelectorAll("th[data-sort]").forEach(th =>
+      th.setAttribute("aria-sort", th.dataset.sort === sort.key ? (sort.dir === 1 ? "ascending" : "descending") : "none"));
+  }
+
+  function render(){ renderKpis(); renderFilters(); renderRows(); store.save(products); }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+  /* ---------- events ---------- */
+  rowsEl.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const sku = btn.closest("tr").dataset.sku;
+    const p = products.find(x => x.sku === sku);
+    if (!p) return;
+    const act = btn.dataset.act;
+    if (act === "inc") { p.qty++; render(); sync.move(p.sku, +1, "received"); }
+    if (act === "dec") { const was = p.qty; p.qty = Math.max(0, p.qty - 1); render(); if (p.qty !== was) sync.move(p.sku, -1, "sold"); }
+    if (act === "edit") openEditor(p);
+    if (act === "del") {
+      lastDeleted = { item:p, at:products.indexOf(p) };
+      products = products.filter(x => x !== p);
+      render();
+      sync.remove(p.sku);
+      toast(`Deleted ${p.name}`);
+    }
+  });
+
+  document.querySelectorAll("th[data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const k = th.dataset.sort;
+      sort = { key:k, dir: sort.key === k ? -sort.dir : 1 };
+      renderRows();
+    });
+  });
+
+  ["#q","#cat","#view"].forEach(sel => $(sel).addEventListener("input", renderRows));
+  $("#add").addEventListener("click", () => openEditor(null));
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "/" && !/input|select|textarea/i.test(e.target.tagName)) { e.preventDefault(); $("#q").focus(); }
+  });
+
+  /* ---------- editor dialog ---------- */
+  function openEditor(p){
+    editing = p ? p.sku : null;
+    $("#dlgTitle").textContent = p ? "Edit product" : "Add product";
+    $("#f-sku").value = p ? p.sku : "";
+    $("#f-name").value = p ? p.name : "";
+    $("#f-cat").value = p ? p.category : "";
+    $("#f-sup").value = p ? (p.supplier || "") : "";
+    $("#f-cost").value = p ? p.cost : "";
+    $("#f-price").value = p ? p.price : "";
+    $("#f-qty").value = p ? p.qty : 0;
+    $("#f-re").value = p ? p.reorder : 5;
+    $("#formErr").textContent = "";
+    dlg.showModal();
+    $("#f-sku").focus();
+  }
+
+  dlg.addEventListener("close", () => {
+    if (dlg.returnValue !== "save") return;
+    const rec = {
+      sku: $("#f-sku").value.trim().toUpperCase(),
+      name: $("#f-name").value.trim(),
+      category: $("#f-cat").value.trim(),
+      supplier: $("#f-sup").value.trim(),
+      cost: +$("#f-cost").value,
+      price: +$("#f-price").value,
+      qty: Math.max(0, Math.round(+$("#f-qty").value)),
+      reorder: Math.max(0, Math.round(+$("#f-re").value))
+    };
+    const clash = products.some(p => p.sku === rec.sku && p.sku !== editing);
+    if (!rec.sku || !rec.name) return fail("SKU and product name are both required.", rec);
+    if (clash) return fail(`SKU ${rec.sku} is already in use.`, rec);
+    if (rec.price < rec.cost) return fail("Sell price is below unit cost. Adjust one of them.", rec);
+    if (editing){
+      products[products.findIndex(p => p.sku === editing)] = rec;
+      if (editing !== rec.sku) sync.remove(editing);     // SKU was renamed
+    } else products.unshift(rec);
+    render();
+    sync.put(rec);
+  });
+
+  // reopen with the rejected values intact; `editing` is left alone so a new product stays new
+  function fail(msg, rec){
+    $("#dlgTitle").textContent = editing ? "Edit product" : "Add product";
+    Object.entries({ "#f-sku":rec.sku, "#f-name":rec.name, "#f-cat":rec.category, "#f-sup":rec.supplier,
+      "#f-cost":rec.cost, "#f-price":rec.price, "#f-qty":rec.qty, "#f-re":rec.reorder })
+      .forEach(([s,v]) => $(s).value = v);
+    dlg.showModal();
+    $("#formErr").textContent = msg;
+    $("#f-sku").focus();
+  }
+
+  /* ---------- toast + undo ---------- */
+  function toast(msg){
+    $("#toastMsg").textContent = msg;
+    $("#toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $("#toast").hidden = true; lastDeleted = null; }, 6000);
+  }
+  $("#undo").addEventListener("click", () => {
+    if (!lastDeleted) return;
+    products.splice(lastDeleted.at, 0, lastDeleted.item);
+    sync.put(lastDeleted.item);
+    lastDeleted = null;
+    $("#toast").hidden = true;
+    render();
+  });
+
+  /* ---------- CSV in / out ---------- */
+  const COLS = ["sku","name","category","supplier","cost","price","qty","reorder"];
+  $("#export").addEventListener("click", () => {
+    const csv = [COLS.join(",")].concat(products.map(p =>
+      COLS.map(c => {
+        const v = String(p[c] ?? "");
+        return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
+      }).join(","))).join("\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type:"text/csv;charset=utf-8" }));
+    const a = Object.assign(document.createElement("a"), { href:url, download:"shelf-stock.csv" });
+    a.click(); URL.revokeObjectURL(url);
+  });
+
+  $("#importBtn").addEventListener("click", () => $("#importFile").click());
+  $("#importFile").addEventListener("change", async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      const text = await file.text();
+      if (sync.on){
+        const d = await sync.importCsv(text);
+        toast(`Imported ${d.imported} rows on the server${d.skipped ? `, skipped ${d.skipped}` : ""}`);
+        e.target.value = "";
+        return;
+      }
+      const rows = parseCsv(text);
+      const head = rows.shift().map(h => h.trim().toLowerCase());
+      let added = 0, updated = 0;
+      for (const r of rows){
+        if (!r.length || !r.join("").trim()) continue;
+        const o = {}; head.forEach((h,i) => o[h] = (r[i] ?? "").trim());
+        if (!o.sku || !o.name) continue;
+        const rec = { sku:o.sku.toUpperCase(), name:o.name, category:o.category || "Uncategorised",
+          supplier:o.supplier || "", cost:+o.cost || 0, price:+o.price || 0,
+          qty:Math.max(0, Math.round(+o.qty || 0)), reorder:Math.max(0, Math.round(+o.reorder || 0)) };
+        const i = products.findIndex(p => p.sku === rec.sku);
+        if (i > -1) { products[i] = rec; updated++; } else { products.push(rec); added++; }
+      }
+      render();
+      toast(`Imported ${added} new, updated ${updated}`);
+    } catch {
+      toast("That file could not be read as CSV");
+    }
+    e.target.value = "";
+  });
+
+  // minimal RFC4180 parser: handles quotes, escaped quotes and embedded newlines
+  function parseCsv(text){
+    const out = [[]]; let field = "", q = false;
+    text = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+    for (let i = 0; i < text.length; i++){
+      const c = text[i];
+      if (q){
+        if (c === '"' && text[i+1] === '"') { field += '"'; i++; }
+        else if (c === '"') q = false;
+        else field += c;
+      } else if (c === '"') q = true;
+      else if (c === ",") { out[out.length-1].push(field); field = ""; }
+      else if (c === "\n") { out[out.length-1].push(field); field = ""; out.push([]); }
+      else field += c;
+    }
+    out[out.length-1].push(field);
+    return out;
+  }
+
+  /* ---------------- optional Node backend ----------------
+     With no server this stays a single-browser app. When server/index.mjs is
+     running, the same UI becomes multi-device: writes go to SQLite over REST,
+     and every other open tab is told over a WebSocket. */
+  const sync = {
+    on: false,
+    ws: null,
+    peers: 1,
+
+    async boot(){
+      try {
+        const r = await fetch("/api/health", { signal: AbortSignal.timeout(1500) });
+        if (!r.ok) return this.offline();
+        const health = await r.json();
+        const list = await (await fetch("/api/products")).json();
+        products = list.products.map(p => ({ ...p, cost:+p.cost, price:+p.price, qty:+p.qty, reorder:+p.reorder }));
+        this.on = true;
+        $("#logBtn").hidden = false;
+        render();
+        this.pill(`synced · ${health.storage}`);
+        this.connect();
+      } catch { this.offline(); }
+    },
+
+    offline(){
+      this.on = false;
+      $("#pill").dataset.on = "false";
+      $("#pill").textContent = "this browser only";
+      $("#pill").title = "Run npm start from the repository to sync across devices";
+    },
+
+    pill(text){
+      $("#pill").dataset.on = "true";
+      $("#pill").textContent = this.peers > 1 ? `${text} · ${this.peers} tabs` : text;
+    },
+
+    connect(){
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${proto}://${location.host}/ws?room=shelf`);
+      this.ws = ws;
+      ws.onmessage = e => {
+        let msg; try { msg = JSON.parse(e.data); } catch { return; }
+        if (msg.type === "peers" || msg.type === "welcome"){
+          this.peers = msg.peers ?? 1;
+          this.pill("synced");
+          return;
+        }
+        if (msg.type === "product" && msg.product){
+          const p = { ...msg.product, cost:+msg.product.cost, price:+msg.product.price,
+                      qty:+msg.product.qty, reorder:+msg.product.reorder };
+          const i = products.findIndex(x => x.sku === p.sku);
+          i > -1 ? (products[i] = p) : products.unshift(p);
+          render();
+        }
+        if (msg.type === "removed"){
+          products = products.filter(p => p.sku !== msg.sku);
+          render();
+        }
+        if (msg.type === "reload") this.reload();
+      };
+      ws.onclose = () => { this.ws = null; setTimeout(() => this.on && this.connect(), 3000); };
+    },
+
+    async reload(){
+      if (!this.on) return;
+      const list = await (await fetch("/api/products")).json();
+      products = list.products.map(p => ({ ...p, cost:+p.cost, price:+p.price, qty:+p.qty, reorder:+p.reorder }));
+      render();
+    },
+
+    put(p){
+      if (!this.on) return;
+      fetch("/api/products/" + encodeURIComponent(p.sku), {
+        method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(p)
+      }).catch(() => {});
+    },
+
+    remove(sku){
+      if (!this.on) return;
+      fetch("/api/products/" + encodeURIComponent(sku), { method: "DELETE" }).catch(() => {});
+    },
+
+    move(sku, delta, reason){
+      if (!this.on) return;
+      fetch(`/api/products/${encodeURIComponent(sku)}/move`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ delta, reason })
+      }).catch(() => {});
+    },
+
+    async importCsv(text){
+      const r = await fetch("/api/import", { method: "POST", headers: { "content-type": "text/csv" }, body: text });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "import failed");
+      await this.reload();
+      return d;
+    },
+
+    async showLog(){
+      const { movements } = await (await fetch("/api/movements?limit=80")).json();
+      $("#logList").innerHTML = movements.length ? movements.map(m => {
+        const when = new Date(m.at);
+        const sign = m.delta > 0 ? "+" : "";
+        return `<li>
+          <time>${when.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</time>
+          <span>${m.name || m.sku}<small>${m.sku} · ${m.reason || "manual"}</small></span>
+          <b class="${m.delta > 0 ? "up" : "down"}">${sign}${m.delta} → ${m.qty_after}</b>
+        </li>`;
+      }).join("") : `<li><span>Nothing recorded yet. Adjust a quantity with the + and − buttons and it lands here.</span></li>`;
+      $("#logDlg").showModal();
+    }
+  };
+
+  $("#logBtn").addEventListener("click", () => sync.showLog().catch(() => toast("Could not load movements")));
+
+  render();
+  sync.boot();
+})();
+</script>
+</body>
+</html>

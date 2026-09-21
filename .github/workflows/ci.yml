@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20.x has no node:sqlite, so the JSON fallback driver is exercised there
+        node: ["20.x", "22.x", "24.x"]
+    name: node ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: No install step
+        run: echo "this project has zero dependencies"
+      - name: Unit and integration tests
+        run: node --test
+      - name: Render a WAV from the command line
+        run: node tools/render-wav.mjs --bars 1 --out /tmp/ci.wav
+      - name: Benchmark the search algorithms
+        run: node tools/bench.mjs --trials 8 --cols 41 --rows 21 --seed 1

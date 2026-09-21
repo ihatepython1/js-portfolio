@@ -1,0 +1,21 @@
+{
+  "name": "four-browser-apps",
+  "version": "1.0.0",
+  "description": "Four single-file browser apps plus a zero-dependency Node server that gives each of them a backend",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "test": "node --test",
+    "test:unit": "node --test \"test/unit/*.test.mjs\"",
+    "test:api": "node --test \"test/integration/*.test.mjs\"",
+    "wav": "node tools/render-wav.mjs",
+    "bench": "node tools/bench.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": ["vanilla-js", "canvas", "web-audio", "websocket", "worker-threads", "no-dependencies"],
+  "license": "MIT"
+}

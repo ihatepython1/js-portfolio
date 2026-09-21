@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pathfinder — watch search algorithms think</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f6f5f0; --ruled:#dfe3e0; --ink:#182028; --muted:#6d7a80;
+    --wall:#26303a; --visit:#cfe0e8; --front:#f0b429; --path:#d14836; --mud:#bcd3bf;
+    --sans:"Spline Sans",-apple-system,"Segoe UI",sans-serif;
+    --mono:"Spline Sans Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    background-image:linear-gradient(var(--ruled) 1px,transparent 1px),linear-gradient(90deg,var(--ruled) 1px,transparent 1px);
+    background-size:28px 28px}
+  button,select,input{font:inherit;color:inherit}
+  button{cursor:pointer}
+  :focus-visible{outline:2px solid var(--path);outline-offset:2px}
+
+  .sheet{max-width:1120px;margin:0 auto;padding:22px 18px 40px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:16px}
+  h1{margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em}
+  .head p{margin:2px 0 0;color:var(--muted);font-size:13.5px;max-width:52ch}
+  .readout{font-family:var(--mono);font-size:13px;color:var(--muted);text-align:right;white-space:nowrap}
+  .readout b{color:var(--ink);font-weight:500}
+
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  select,.btn{background:#fff;border:1px solid var(--ink);border-radius:2px;padding:7px 12px}
+  .btn:hover{background:#ecebe4}
+  .btn.run{background:var(--ink);color:#fff}
+  .btn.run:hover{background:#2f3c48}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .slider{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  input[type=range]{width:110px;accent-color:var(--ink)}
+
+  .board{background:#fff;border:1px solid var(--ink);box-shadow:5px 5px 0 rgba(24,32,40,.12);padding:6px;touch-action:none}
+  canvas{display:block;width:100%;height:auto;cursor:crosshair}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .sw{width:13px;height:13px;border:1px solid rgba(24,32,40,.35);display:inline-block}
+  .server{margin-top:22px;background:#fff;border:1px solid var(--ink);box-shadow:5px 5px 0 rgba(24,32,40,.12);padding:14px 16px}
+  .serverbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .serverbar h2{margin:0;font-size:15px;font-weight:600;flex:1 1 auto}
+  .pill{font-family:var(--mono);font-size:11.5px;padding:2px 9px;border-radius:99px;border:1px solid var(--ruled);color:var(--muted)}
+  .pill[data-on=true]{border-color:#2f7d5b;color:#2f7d5b}
+  .pill[data-on=false]{border-color:var(--ruled);color:var(--muted)}
+  .serverhint{margin:8px 0 0;font-size:12.5px;color:var(--muted);max-width:74ch}
+  table.bench{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+  table.bench th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:5px 8px;border-bottom:1px solid var(--ink)}
+  table.bench td{padding:6px 8px;border-bottom:1px solid var(--ruled);font-family:var(--mono);font-size:12.5px}
+  table.bench td:first-child{font-family:var(--sans);font-weight:500}
+  table.bench .num{text-align:right}
+  .barcell{position:relative}
+  .barcell i{position:absolute;left:8px;top:50%;transform:translateY(-50%);height:9px;background:#cfe0e8;display:block}
+  .barcell span{position:relative}
+  .best{color:#2f7d5b}
+  .worst{color:var(--path)}
+  .runmeta{margin-top:8px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .hint{margin-top:14px;font-size:13px;color:var(--muted);max-width:70ch}
+  .hint kbd{font-family:var(--mono);background:#fff;border:1px solid var(--ruled);border-bottom-width:2px;border-radius:3px;padding:1px 5px;font-size:12px}
+  .note{margin-top:6px;font-size:13px;color:var(--muted)}
+  .note b{color:var(--ink);font-weight:500}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="head">
+    <div>
+      <h1>Pathfinder</h1>
+      <p>Five ways to get from A to B. Same grid, same walls — the difference is what each algorithm is willing to look at.</p>
+    </div>
+    <div class="readout" id="readout">visited <b>0</b> · path <b>—</b> · <b>0.0</b> ms</div>
+  </div>
+
+  <div class="controls">
+    <select id="algo" aria-label="Algorithm">
+      <option value="astar">A* search</option>
+      <option value="dijkstra">Dijkstra</option>
+      <option value="bfs">Breadth-first</option>
+      <option value="greedy">Greedy best-first</option>
+      <option value="dfs">Depth-first</option>
+    </select>
+    <button class="btn run" id="run">Run search</button>
+    <button class="btn" id="maze">Generate maze</button>
+    <button class="btn" id="clearPath">Clear search</button>
+    <button class="btn" id="clearAll">Clear board</button>
+    <label class="slider">Speed <input type="range" id="speed" min="1" max="60" value="22" aria-label="Animation speed"></label>
+  </div>
+
+  <div class="board"><canvas id="cv"></canvas></div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--wall)"></i>Wall</span>
+    <span><i class="sw" style="background:var(--mud)"></i>Slow ground (cost 6)</span>
+    <span><i class="sw" style="background:var(--visit)"></i>Visited</span>
+    <span><i class="sw" style="background:var(--front)"></i>Frontier</span>
+    <span><i class="sw" style="background:var(--path)"></i>Shortest path</span>
+  </div>
+
+  <section class="server" id="server" hidden>
+    <div class="serverbar">
+      <h2>Benchmark on the server</h2>
+      <span class="pill" id="pill">checking…</span>
+      <select id="trials" aria-label="Number of mazes per run">
+        <option value="10">10 mazes</option>
+        <option value="20" selected>20 mazes</option>
+        <option value="40">40 mazes</option>
+      </select>
+      <button class="btn" id="bench" disabled>Run all five</button>
+    </div>
+    <p class="serverhint">Five algorithms over the same set of freshly generated mazes, run in a worker thread pool so the results are averages rather than one lucky maze. The seed comes back with the numbers, so any run can be repeated.</p>
+    <div id="benchOut"></div>
+  </section>
+
+  <p class="hint">Drag on the grid to draw walls. Hold <kbd>Shift</kbd> while dragging to lay slow ground — Dijkstra and A* will route around it, breadth-first will walk straight through and pay for it. Drag the green and red squares to move the start and goal.</p>
+  <p class="note" id="note"><b>A*</b> expands toward the goal first using a Manhattan estimate, so it visits far fewer cells than Dijkstra while still returning a shortest path.</p>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const CELL = 26, WALL = 1, MUD = 2, MUD_COST = 6;
+  const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  const $ = s => document.querySelector(s);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  let cols, rows, grid, start, goal;
+  let state = null;           // { visited:Set, frontier:Set, path:[] }
+  let anim = null;            // running replay
+  let drag = null;            // 'wall' | 'mud' | 'start' | 'goal'
+
+  const idx = (x,y) => y * cols + x;
+  const inside = (x,y) => x >= 0 && y >= 0 && x < cols && y < rows;
+  const cost = i => grid[i] === MUD ? MUD_COST : 1;
+
+  /* ---------------- board setup ---------------- */
+  function layout(){
+    const w = cv.parentElement.clientWidth - 12;
+    cols = Math.max(12, Math.floor(w / CELL));
+    rows = Math.max(10, Math.round(cols * 0.52));
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    cv.width = cols * CELL * dpr;
+    cv.height = rows * CELL * dpr;
+    cv.style.height = (rows * CELL) + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function reset(keepWalls){
+    const old = keepWalls && grid ? { grid, cols, rows } : null;
+    layout();
+    grid = new Uint8Array(cols * rows);
+    if (old) for (let y = 0; y < Math.min(rows, old.rows); y++)
+      for (let x = 0; x < Math.min(cols, old.cols); x++) grid[idx(x,y)] = old.grid[y * old.cols + x];
+    start = { x: Math.floor(cols * 0.12), y: Math.floor(rows / 2) };
+    goal  = { x: Math.floor(cols * 0.88), y: Math.floor(rows / 2) };
+    grid[idx(start.x,start.y)] = 0; grid[idx(goal.x,goal.y)] = 0;
+    state = null;
+    draw();
+  }
+
+  /* ---------------- drawing ---------------- */
+  function draw(){
+    const C = { paper:"#ffffff", wall:css("--wall"), mud:css("--mud"), visit:css("--visit"),
+                front:css("--front"), path:css("--path"), ruled:css("--ruled") };
+    ctx.fillStyle = C.paper;
+    ctx.fillRect(0, 0, cols * CELL, rows * CELL);
+
+    for (let i = 0; i < grid.length; i++){
+      if (!grid[i]) continue;
+      ctx.fillStyle = grid[i] === WALL ? C.wall : C.mud;
+      ctx.fillRect((i % cols) * CELL, Math.floor(i / cols) * CELL, CELL, CELL);
+    }
+    if (state){
+      ctx.fillStyle = C.visit;
+      state.visited.forEach(i => { if (!grid[i]) ctx.fillRect((i%cols)*CELL, Math.floor(i/cols)*CELL, CELL, CELL); });
+      ctx.fillStyle = C.front;
+      state.frontier.forEach(i => ctx.fillRect((i%cols)*CELL + 6, Math.floor(i/cols)*CELL + 6, CELL-12, CELL-12));
+      if (state.path.length){
+        ctx.strokeStyle = C.path; ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.lineCap = "round";
+        ctx.beginPath();
+        state.path.forEach((i, n) => {
+          const x = (i % cols) * CELL + CELL/2, y = Math.floor(i / cols) * CELL + CELL/2;
+          n ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        });
+        ctx.stroke();
+      }
+    }
+    // grid rules
+    ctx.strokeStyle = C.ruled; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= cols; x++){ ctx.moveTo(x*CELL + .5, 0); ctx.lineTo(x*CELL + .5, rows*CELL); }
+    for (let y = 0; y <= rows; y++){ ctx.moveTo(0, y*CELL + .5); ctx.lineTo(cols*CELL, y*CELL + .5); }
+    ctx.stroke();
+
+    marker(start, "#2f7d5b"); marker(goal, C.path);
+  }
+
+  function marker(p, color){
+    const x = p.x * CELL, y = p.y * CELL;
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 3, y + 3, CELL - 6, CELL - 6);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(x + CELL/2 - 2, y + CELL/2 - 2, 4, 4);
+  }
+
+  /* ---------------- algorithms ---------------- */
+  // Each returns { order:[cellIndex...], frontierAt:[Set snapshots are too costly, so store parent map], path:[...] }
+  function search(kind){
+    const s = idx(start.x, start.y), g = idx(goal.x, goal.y);
+    const n = cols * rows;
+    const prev = new Int32Array(n).fill(-1);
+    const dist = new Float64Array(n).fill(Infinity);
+    const seen = new Uint8Array(n);
+    const order = [];                         // expansion order, for the replay
+    const h = i => Math.abs(i % cols - goal.x) + Math.abs(Math.floor(i / cols) - goal.y);
+
+    const open = new MinHeap();
+    const weighted = kind === "dijkstra" || kind === "astar";
+    const priority = i => kind === "astar" ? dist[i] + h(i)
+                        : kind === "greedy" ? h(i)
+                        : kind === "dijkstra" ? dist[i] : 0;
+
+    dist[s] = 0;
+    // the frontier structure *is* the algorithm: stack backtracks, FIFO queue
+    // spreads evenly, priority queue follows whatever score it is handed
+    const list = [s];
+    let head = 0;
+    open.push(s, priority(s));
+    seen[s] = 1;
+
+    const takeNext = kind === "dfs" ? () => list.pop()
+                   : kind === "bfs" ? () => (head < list.length ? list[head++] : undefined)
+                   : () => open.pop();
+    const hasNext = kind === "dfs" ? () => list.length > 0
+                  : kind === "bfs" ? () => head < list.length
+                  : () => open.size() > 0;
+
+    while (hasNext()){
+      const cur = takeNext();
+      if (cur === undefined) break;
+      order.push(cur);
+      if (cur === g) break;
+
+      const cx = cur % cols, cy = Math.floor(cur / cols);
+      for (const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){
+        const nx = cx + dx, ny = cy + dy;
+        if (!inside(nx,ny)) continue;
+        const ni = idx(nx,ny);
+        if (grid[ni] === WALL) continue;
+
+        if (weighted){
+          const nd = dist[cur] + cost(ni);
+          if (nd < dist[ni]){ dist[ni] = nd; prev[ni] = cur; open.push(ni, priority(ni)); }
+        } else {
+          if (seen[ni]) continue;
+          seen[ni] = 1; prev[ni] = cur; dist[ni] = dist[cur] + cost(ni);
+          if (kind === "dfs" || kind === "bfs") list.push(ni);
+          else open.push(ni, priority(ni));
+        }
+      }
+    }
+
+    const path = [];
+    if (order[order.length-1] === g || prev[g] !== -1 || g === s){
+      for (let c = g; c !== -1; c = prev[c]){ path.push(c); if (c === s) break; }
+      path.reverse();
+      if (path[0] !== s) path.length = 0;
+    }
+    return { order, path, cost: dist[g] };
+  }
+
+  // binary min-heap keyed by priority; lazily allows duplicate entries
+  class MinHeap {
+    constructor(){ this.a = []; }
+    size(){ return this.a.length; }
+    push(v, p){
+      this.a.push({ v, p }); let i = this.a.length - 1;
+      while (i > 0){ const par = (i - 1) >> 1;
+        if (this.a[par].p <= this.a[i].p) break;
+        [this.a[par], this.a[i]] = [this.a[i], this.a[par]]; i = par; }
+    }
+    pop(){
+      if (!this.a.length) return undefined;
+      const top = this.a[0], last = this.a.pop();
+      if (this.a.length){ this.a[0] = last; let i = 0;
+        for(;;){ const l = i*2+1, r = l+1; let m = i;
+          if (l < this.a.length && this.a[l].p < this.a[m].p) m = l;
+          if (r < this.a.length && this.a[r].p < this.a[m].p) m = r;
+          if (m === i) break;
+          [this.a[m], this.a[i]] = [this.a[i], this.a[m]]; i = m; } }
+      return top.v;
+    }
+  }
+
+  /* ---------------- replay animation ---------------- */
+  function run(){
+    stop();
+    const kind = $("#algo").value;
+    const t0 = performance.now();
+    const res = search(kind);
+    const ms = performance.now() - t0;
+
+    state = { visited:new Set(), frontier:new Set(), path:[] };
+    let i = 0;
+    const speed = () => +$("#speed").value;
+
+    anim = requestAnimationFrame(function step(){
+      const budget = Math.max(1, Math.round(speed() * speed() / 22));
+      for (let k = 0; k < budget && i < res.order.length; k++, i++){
+        state.frontier.delete(res.order[i]);
+        state.visited.add(res.order[i]);
+      }
+      if (i < res.order.length){
+        state.frontier.clear();
+        for (let k = i; k < Math.min(i + 40, res.order.length); k++) state.frontier.add(res.order[k]);
+      } else {
+        state.frontier.clear();
+      }
+      draw();
+      report(state.visited.size, i >= res.order.length ? res : null, ms);
+
+      if (i < res.order.length) anim = requestAnimationFrame(step);
+      else { anim = null; revealPath(res, ms); }
+    });
+  }
+
+  function revealPath(res, ms){
+    if (!res.path.length){ report(state.visited.size, res, ms); return; }
+    let n = 0;
+    anim = requestAnimationFrame(function step(){
+      n = Math.min(res.path.length, n + Math.max(1, Math.round(+$("#speed").value / 6)));
+      state.path = res.path.slice(0, n);
+      draw();
+      if (n < res.path.length) anim = requestAnimationFrame(step); else anim = null;
+    });
+    report(state.visited.size, res, ms);
+  }
+
+  function report(visited, res, ms){
+    const path = res ? (res.path.length ? res.path.length + " cells" : "no route") : "…";
+    const c = res && res.path.length && isFinite(res.cost) ? " · cost <b>" + res.cost + "</b>" : "";
+    $("#readout").innerHTML = `visited <b>${visited}</b> · path <b>${path}</b>${c} · <b>${ms.toFixed(1)}</b> ms`;
+  }
+
+  function stop(){ if (anim) cancelAnimationFrame(anim); anim = null; }
+
+  const NOTES = {
+    astar: "<b>A*</b> expands toward the goal first using a Manhattan estimate, so it visits far fewer cells than Dijkstra while still returning a shortest path.",
+    dijkstra: "<b>Dijkstra</b> grows a circle of equal travel cost in every direction. Always optimal with weights, but it looks everywhere.",
+    bfs: "<b>Breadth-first</b> is Dijkstra with every step priced at 1 — shortest in number of steps, but it ignores how slow the ground is.",
+    greedy: "<b>Greedy best-first</b> chases the estimate alone. Very fast, and happily returns a path that is not the shortest one.",
+    dfs: "<b>Depth-first</b> follows one corridor to its end before backtracking. Cheap to run, and the route it finds is usually terrible."
+  };
+
+  /* ---------------- maze generation (recursive backtracker) ---------------- */
+  function maze(){
+    stop(); state = null;
+    grid.fill(WALL);
+    const carve = (x,y) => grid[idx(x,y)] = 0;
+    const sx = 1, sy = 1;
+    carve(sx,sy);
+    const stack = [[sx,sy]];
+    while (stack.length){
+      const [x,y] = stack[stack.length-1];
+      const opts = [[0,-2],[2,0],[0,2],[-2,0]]
+        .map(([dx,dy]) => [x+dx, y+dy, x+dx/2, y+dy/2])
+        .filter(([nx,ny]) => nx > 0 && ny > 0 && nx < cols-1 && ny < rows-1 && grid[idx(nx,ny)] === WALL);
+      if (!opts.length){ stack.pop(); continue; }
+      const [nx,ny,mx,my] = opts[Math.random() * opts.length | 0];
+      carve(mx,my); carve(nx,ny);
+      stack.push([nx,ny]);
+    }
+    // knock out a few walls so more than one route exists, and add slow ground
+    for (let k = 0; k < cols * rows / 28; k++){
+      const x = 1 + Math.random() * (cols-2) | 0, y = 1 + Math.random() * (rows-2) | 0;
+      grid[idx(x,y)] = 0;
+    }
+    for (let k = 0; k < cols * rows / 12; k++){
+      const i = Math.random() * grid.length | 0;
+      if (!grid[i]) grid[i] = MUD;
+    }
+    // clear a 3x3 around each endpoint: any three consecutive coordinates contain an odd one,
+    // so the block always overlaps a carved corridor cell and the endpoint is never walled in
+    for (const p of [start, goal])
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+        if (inside(p.x+dx, p.y+dy)) grid[idx(p.x+dx, p.y+dy)] = 0;
+    draw();
+    report(0, null, 0);
+  }
+
+  /* ---------------- pointer interaction ---------------- */
+  function cellAt(e){
+    const r = cv.getBoundingClientRect();
+    const scale = cols * CELL / r.width;
+    return { x: Math.floor((e.clientX - r.left) * scale / CELL),
+             y: Math.floor((e.clientY - r.top) * scale / CELL) };
+  }
+
+  cv.addEventListener("pointerdown", e => {
+    const p = cellAt(e); if (!inside(p.x,p.y)) return;
+    cv.setPointerCapture(e.pointerId);
+    if (p.x === start.x && p.y === start.y) drag = "start";
+    else if (p.x === goal.x && p.y === goal.y) drag = "goal";
+    else { drag = e.shiftKey ? "mud" : (grid[idx(p.x,p.y)] ? "erase" : "wall"); paint(p); }
+  });
+  cv.addEventListener("pointermove", e => { if (drag) paint(cellAt(e)); });
+  addEventListener("pointerup", () => { drag = null; });
+
+  function paint(p){
+    if (!inside(p.x,p.y)) return;
+    const i = idx(p.x,p.y);
+    if (drag === "start"){ if (grid[i] !== WALL) start = p; }
+    else if (drag === "goal"){ if (grid[i] !== WALL) goal = p; }
+    else {
+      if ((p.x === start.x && p.y === start.y) || (p.x === goal.x && p.y === goal.y)) return;
+      grid[i] = drag === "wall" ? WALL : drag === "mud" ? MUD : 0;
+    }
+    draw();
+  }
+
+  /* ---------------- wiring ---------------- */
+  $("#run").addEventListener("click", run);
+  $("#maze").addEventListener("click", maze);
+  $("#clearPath").addEventListener("click", () => { stop(); state = null; draw(); report(0,null,0); });
+  $("#clearAll").addEventListener("click", () => { stop(); grid.fill(0); state = null; draw(); report(0,null,0); });
+  $("#algo").addEventListener("change", e => { $("#note").innerHTML = NOTES[e.target.value]; });
+  addEventListener("resize", () => { stop(); reset(true); });
+  addEventListener("keydown", e => {
+    if (e.key === "Enter" && !/input|select/i.test(e.target.tagName)) run();
+  });
+
+  reset(false);
+  maze();
+
+  /* ---------------- optional Node backend ---------------- */
+  // Everything above works with no server at all. If server/index.mjs is
+  // running on this origin, the benchmark panel switches itself on.
+  (async () => {
+    const panel = $("#server"), pill = $("#pill"), btn = $("#bench");
+    panel.hidden = false;
+    let health = null;
+    try {
+      const r = await fetch("/api/health", { signal: AbortSignal.timeout(1500) });
+      if (r.ok) health = await r.json();
+    } catch {}
+
+    if (!health){
+      pill.dataset.on = "false";
+      pill.textContent = "offline";
+      $("#benchOut").innerHTML =
+        `<p class="serverhint">No backend on this origin — the visualizer above is fully self-contained.
+         Run <code>npm start</code> from the repository to enable server-side benchmarking.</p>`;
+      return;
+    }
+
+    pill.dataset.on = "true";
+    pill.textContent = `${health.node} · ${health.workers.solve} workers`;
+    btn.disabled = false;
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const was = btn.textContent;
+      btn.textContent = "running…";
+      try {
+        const res = await fetch("/api/benchmark", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ cols: 61, rows: 31, trials: +$("#trials").value })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "benchmark failed");
+        renderBench(data);
+      } catch (err) {
+        $("#benchOut").innerHTML = `<p class="serverhint">${err.message}</p>`;
+      } finally {
+        btn.disabled = false; btn.textContent = was;
+      }
+    });
+
+    function renderBench(d){
+      const maxVisited = Math.max(...d.results.map(r => r.avgVisited));
+      const bestCost = Math.min(...d.results.filter(r => r.avgCost).map(r => r.avgCost));
+      const NAMES = { astar:"A*", dijkstra:"Dijkstra", bfs:"Breadth-first", greedy:"Greedy", dfs:"Depth-first" };
+      $("#benchOut").innerHTML = `
+        <table class="bench">
+          <thead><tr>
+            <th>Algorithm</th><th class="num">Cells looked at</th><th class="num">of board</th>
+            <th class="num">Route cost</th><th class="num">vs best</th><th class="num">Time</th>
+          </tr></thead>
+          <tbody>${d.results.map(r => `
+            <tr>
+              <td>${NAMES[r.algorithm]}</td>
+              <td class="num barcell"><i style="width:${(r.avgVisited/maxVisited*90).toFixed(0)}px"></i><span>${r.avgVisited}</span></td>
+              <td class="num">${r.shareOfBoard}%</td>
+              <td class="num">${r.avgCost ?? "—"}</td>
+              <td class="num ${r.avgCost === bestCost ? "best" : r.costVsBest > 1.5 ? "worst" : ""}">${r.costVsBest ? "×" + r.costVsBest : "—"}</td>
+              <td class="num">${r.avgMs} ms</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+        <p class="runmeta">${d.trials} mazes of ${d.cols}×${d.rows} · seed ${d.seed} · ${d.wallMs} ms wall clock across ${d.pool} workers</p>`;
+    }
+  })();
+})();
+</script>
+</body>
+</html>
