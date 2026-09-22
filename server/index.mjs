@@ -259,12 +259,14 @@ const MIME = {
 async function serveStatic(pathname, res) {
   let rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
   if (rel.endsWith("/")) rel += "index.html";
-  const file = join(ROOT, rel);
+  let file = join(ROOT, rel);
   if (!file.startsWith(ROOT)) { res.writeHead(403).end("Forbidden"); return; }
 
   try {
     const info = await stat(file);
-    if (info.isDirectory()) return serveStatic(pathname.replace(/\/?$/, "/"), res);
+    // Windows normalizes trailing slashes to backslashes. Resolve a directory's
+    // index directly instead of recursing with the same URL indefinitely.
+    if (info.isDirectory()) file = join(file, "index.html");
     const body = await readFile(file);
     res.writeHead(200, {
       "content-type": MIME[extname(file)] || "application/octet-stream",
